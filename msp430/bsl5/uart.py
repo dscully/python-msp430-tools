@@ -21,6 +21,7 @@ import time
 from optparse import OptionGroup
 import msp430.target
 import msp430.memory
+import cgos
 
 
 # interface specific commands
@@ -72,7 +73,33 @@ class SerialBSL5(bsl5.BSL5):
         # delay after control line changes
         self.control_delay = 0.05
 
+        self.gpio_cache = 0x000
+
+    def set_gpio_test(self, state):
+        if state:
+            self.gpio_cache = self.gpio_cache | (1<<11)
+        else:
+            self.gpio_cache = self.gpio_cache & ~(1<<11)
+        cgos.ioWrite(0, self.gpio_cache)
+        self.logger.debug(f'set_gpio_test Wrote: {hex(self.gpio_cache)}')
+    
+    def set_gpio_reset(self, state):
+        if state:
+            self.gpio_cache = self.gpio_cache | (1<<10)
+        else:
+            self.gpio_cache = self.gpio_cache & ~(1<<10)
+        cgos.ioWrite(0, self.gpio_cache)
+        self.logger.debug(f'set_gpio_reset Wrote: {hex(self.gpio_cache)}')
+
     def open(self, port, baudrate=9600, ignore_answer=False):
+
+        if cgos.openif() == False:
+            raise bsl5.BSL5Error
+        self.logger.debug('Opened board succesfully')
+        self.logger.debug(f'Pin Directions Capabilities: {cgos.ioGetDirectionCaps(0)}')
+        self.logger.debug(f'Current Pin Direction: {hex(cgos.ioGetDirection(0))}')
+        self.logger.debug(f'Board Name is: {cgos.boardGetName()}')
+
         self.ignore_answer = ignore_answer
         self.logger.info('Opening serial port %r' % port)
         try:
@@ -101,6 +128,7 @@ class SerialBSL5(bsl5.BSL5):
             self.logger.info('closing serial port')
             self.serial.close()
             self.serial = None
+        cgos.closeif()
 
     # interface specific commands
 
@@ -188,8 +216,10 @@ class SerialBSL5(bsl5.BSL5):
         # set pin level
         if self.swapResetTest:
             self.serial.setRTS(level)
+            self.set_gpio_test(not level)
         else:
             self.serial.setDTR(level)
+            self.set_gpio_reset(not level)
         time.sleep(self.control_delay)
 
     def set_TEST(self, level=True):
@@ -207,8 +237,10 @@ class SerialBSL5(bsl5.BSL5):
             # set pin level
             if self.swapResetTest:
                 self.serial.setDTR(level)
+                self.set_gpio_reset(not level)
             else:
                 self.serial.setRTS(level)
+                self.set_gpio_test(not level)
         time.sleep(self.control_delay)
 
     def set_baudrate(self, baudrate):
