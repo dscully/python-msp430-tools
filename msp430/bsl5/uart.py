@@ -231,16 +231,15 @@ class SerialBSL5(bsl5.BSL5):
         """
         self.logger.info('ROM-BSL start pulse pattern')
         self.set_RST(True)      # power supply
-        self.set_TEST(True)     # power supply
+        self.set_TEST(False)     # power supply
         time.sleep(0.250)       # charge capacitor on boot loader hardware
 
         self.set_RST(False)     # RST  pin: GND
         self.set_TEST(True)     # TEST pin: GND
         self.set_TEST(False)    # TEST pin: Vcc
         self.set_TEST(True)     # TEST pin: GND
-        self.set_TEST(False)    # TEST pin: Vcc
         self.set_RST(True)      # RST  pin: Vcc
-        self.set_TEST(True)     # TEST pin: GND
+        self.set_TEST(False)    # TEST pin: Vcc
         time.sleep(0.250)       # give MSP430's oscillator time to stabilize
 
         self.serial.flushInput()    # clear buffers
@@ -357,7 +356,7 @@ class SerialBSL5Target(SerialBSL5, msp430.target.Target):
         if self.options.swap_reset_test:
             self.swapResetTest = True
 
-        self.set_TEST(True)
+        self.set_TEST(False)
         self.set_RST(True)
 
         if self.options.start_pattern:
