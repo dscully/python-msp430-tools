@@ -45,11 +45,11 @@ BSL5_UART_ERROR_CODES = {
     0x56: 'Unknown baud rate',
 }
 
-BSL5_ACK = '\x00'
+BSL5_ACK = b'\x00'
 
 
 def crc_update(crc, byte):
-    x = ((crc >> 8) ^ ord(byte)) & 0xff
+    x = ((crc >> 8) ^ byte) & 0xff
     x ^= x >> 4
     return ((crc << 8) ^ (x << 12) ^ (x << 5) ^ x) & 0xffff
 
@@ -128,11 +128,11 @@ class SerialBSL5(bsl5.BSL5):
         +-----+----+----+-----------+----+----+
         """
         # first synchronize with slave
-        self.logger.debug('Command 0x%02x %s' % (cmd, binascii.hexlify(message)))
+        self.logger.debug('Command 0x%02x %s' % (cmd[0], binascii.hexlify(message)))
         # prepare command with checksum
-        txdata = struct.pack('<BHB', 0x80, 1 + len(message), cmd) + message
-        txdata += struct.pack('<H', functools.reduce(crc_update, txdata, 0xffff))   # append checksum
-        #~ self.logger.debug('Sending command: %r' % (binascii.hexlify(txdata),))
+        txdata = struct.pack('<BHB', 0x80, 1 + len(message), cmd[0]) + message
+        txdata += struct.pack('<H', functools.reduce(crc_update, cmd + message, 0xffff))   # append checksum
+        self.logger.debug('Sending command (full): %r' % (binascii.hexlify(txdata),))
         # transmit command
         self.serial.write(txdata)
         # wait for command answer
@@ -152,14 +152,14 @@ class SerialBSL5(bsl5.BSL5):
                     break
         if ans != BSL5_ACK:
             if ans:
-                raise bsl5.BSL5Error('BSL reports error: %s' % BSL5_UART_ERROR_CODES.get(ans, 'unknown error'))
+                raise bsl5.BSL5Error('BSL reports error: %s' % BSL5_UART_ERROR_CODES.get(ans[0], 'unknown error'))
             raise bsl5.BSL5Error('No ACK received (timeout)')
 
         head = self.serial.read(3)
         if len(head) != 3:
             raise bsl5.BSL5Timeout('timeout while reading answer (header)')
         pi, length = struct.unpack("<BH", head)
-        if pi == '\x80':
+        if pi == 0x80:
             data = self.serial.read(length)
             if len(data) != length:
                 raise bsl5.BSL5Timeout('timeout while reading answer (data)')
@@ -167,15 +167,15 @@ class SerialBSL5(bsl5.BSL5):
             if len(crc_str) != 2:
                 raise bsl5.BSL5Timeout('timeout while reading answer (CRC)')
             crc = struct.unpack("<H", crc_str)
-            crc_expected = functools.reduce(crc_update, head + data, 0xffff)
-            if crc != crc_expected:
-                raise bsl5.BSLException('CRC error in answer')
+            crc_expected = functools.reduce(crc_update, data, 0xffff)
+            if crc[0] != crc_expected:
+                raise bsl5.BSL5Exception('CRC error in answer')
             if expect is not None and length != expect:
                 raise bsl5.BSL5Error('expected %d bytes, got %d bytes' % (expect, len(data)))
             return data
         else:
             if pi:
-                raise bsl5.BSL5Error('received bad PI, expected 0x80 (got 0x%02x)' % (ord(pi),))
+                raise bsl5.BSL5Error('received bad PI, expected 0x80 (got 0x%02x)' % (pi,))
             raise bsl5.BSL5Error('received bad PI, expected 0x80 (got empty response)')
 
     def set_RST(self, level=True):
@@ -366,14 +366,14 @@ class SerialBSL5Target(SerialBSL5, msp430.target.Target):
         if self.options.do_mass_erase:
             self.logger.info("Mass erase...")
             try:
-                self.BSL_RX_PASSWORD('\xff' * 30 + '\0' * 2)
+                self.BSL_RX_PASSWORD(b'\xff' * 30 + b'\0' * 2)
             except bsl5.BSL5Error:
                 pass  # it will fail - that is our intention to trigger the erase
             time.sleep(1)
             #~ self.extra_timeout = 6
             #~ self.mass_erase()
             #~ self.extra_timeout = None
-            self.BSL_RX_PASSWORD('\xff' * 32)
+            self.BSL_RX_PASSWORD(b'\xff' * 32)
             # remove mass_erase from action list so that it is not done
             # twice
             self.remove_action(self.mass_erase)

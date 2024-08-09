@@ -16,17 +16,17 @@ port access, USB HID).
 import struct
 
 # commands for the MSP430 target
-BSL_RX_DATA_BLOCK = 0x10        # Write to boot loader
-BSL_RX_DATA_BLOCK_FAST = 0x1b   # Write to boot loader
-BSL_RX_PASSWORD = 0x11          # Receive password to unlock commands
-BSL_ERASE_SEGMENT = 0x12        # Erase one segment
-BSL_LOCK_INFO = 0x13            # Toggle INFO_A lock bit
-BSL_MASS_ERASE = 0x15           # Erase complete FLASH memory
-BSL_CRC_CHECK = 0x16            # Run 16 bit CRC check over given area
-BSL_LOAD_PC = 0x17              # Load PC and start execution
-BSL_TX_DATA_BLOCK = 0x18        # Read from boot loader
-BSL_VERSION = 0x19              # Get BSL version
-BSL_BUFFER_SIZE = 0x1a          # Get BSL buffer size
+BSL_RX_DATA_BLOCK = b'\x10'        # Write to boot loader
+BSL_RX_DATA_BLOCK_FAST = b'\x1b'   # Write to boot loader
+BSL_RX_PASSWORD = b'\x11'          # Receive password to unlock commands
+BSL_ERASE_SEGMENT = b'\x12'        # Erase one segment
+BSL_LOCK_INFO = b'\x13'            # Toggle INFO_A lock bit
+BSL_MASS_ERASE = b'\x15'           # Erase complete FLASH memory
+BSL_CRC_CHECK = b'\x16'            # Run 16 bit CRC check over given area
+BSL_LOAD_PC = b'\x17'              # Load PC and start execution
+BSL_TX_DATA_BLOCK = b'\x18'        # Read from boot loader
+BSL_VERSION = b'\x19'              # Get BSL version
+BSL_BUFFER_SIZE = b'\x1a'          # Get BSL buffer size
 
 
 class BSL5Exception(Exception):
@@ -55,7 +55,7 @@ BSL5_ERROR_CODES = {
 
 def three_bytes(address):
     """Convert a 24 bit address to a string with 3 bytes"""
-    return '%c%c%c' % ((address & 0xff), (address >> 8) & 0xff, (address >> 16) & 0xff)
+    return b'%c%c%c' % ((address & 0xff), (address >> 8) & 0xff, (address >> 16) & 0xff)
 
 
 class BSL5(object):
@@ -64,16 +64,16 @@ class BSL5(object):
     """
 
     def check_answer(self, data):
-        if data[0] == '\x3b':
-            if data[1] == '\0':
+        if data[0] == 0x3b:
+            if data[1] == 0:
                 return  # SUCCESS!
-            raise BSL5Error(BSL5_ERROR_CODES.get(ord(data[1]), 'unknown error response 0x%02x' % ord(data[1])))
-        elif data[0] != '\x3a':
-            raise BSL5Error('unknown response 0x%02x' % ord(data[0]))
+            raise BSL5Error(BSL5_ERROR_CODES.get(data[1], 'unknown error response 0x%02x' % data[1]))
+        elif data[0] != 0x3a:
+            raise BSL5Error('unknown response 0x%02x' % data[0])
 
     def BSL_RX_DATA_BLOCK(self, address, data):
         packet = three_bytes(address) + data
-        answer = self.bsl(BSL_RX_DATA_BLOCK, packet, expect=0)
+        answer = self.bsl(BSL_RX_DATA_BLOCK, packet, expect=2)
         self.check_answer(answer)
 
     def BSL_RX_DATA_BLOCK_FAST(self, address, data):
@@ -98,7 +98,7 @@ class BSL5(object):
         self.bsl(BSL_LOAD_PC, three_bytes(address), receive_response=False)
 
     def BSL_RX_PASSWORD(self, password):
-        answer = self.bsl(BSL_RX_PASSWORD, password, expect=0)
+        answer = self.bsl(BSL_RX_PASSWORD, password, expect=2)
         self.check_answer(answer)
 
     def BSL_VERSION(self):

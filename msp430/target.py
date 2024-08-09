@@ -27,6 +27,7 @@ import sys
 import time
 import logging
 import struct
+import traceback
 from msp430 import memory
 
 from optparse import OptionParser, OptionGroup, IndentedHelpFormatter
@@ -257,7 +258,7 @@ class Target(object):
             data = segment.data
             # pad length if odd number of bytes
             if len(data) & 1:
-                data += '\xff'
+                data.append(0xFF)
             self.memory_write(segment.startaddress, data)
         if self.verbose and not quiet:
             sys.stderr.write('Programming: OK\n')
@@ -733,6 +734,7 @@ Multiple --upload options are allowed.
         except Exception as msg:                            # every Exception is caught and displayed
             if self.debug: raise                            # show full trace in debug mode
             sys.stderr.write("\nAn error occurred:\n%s\n" % msg)  # short message in user mode
+            print(traceback.format_exc())
             sys.exit(1)                                     # set error level for script usage
         finally:
             if abort_due_to_error:
