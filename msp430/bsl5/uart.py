@@ -73,7 +73,7 @@ class SerialBSL5(bsl5.BSL5):
         # delay after control line changes
         self.control_delay = 0.05
 
-        self.gpio_cache = 0x000
+        self.gpio_cache = (1<<10)
 
     def set_gpio_test(self, state):
         if state:
@@ -431,7 +431,8 @@ class SerialBSL5Target(SerialBSL5, msp430.target.Target):
         #~ time.sleep(0.1)
         #~ self.patch_in_use = False
         self.set_RST(False)
-        #~ time.sleep(0.5)
+        time.sleep(0.01)
+        self.set_RST(True)
         #~ SerialBSL.reset(self)
         #~ self.set_RST(True)
         #~ time.sleep(0.250)       # give MSP430's oscillator time to stabilize
