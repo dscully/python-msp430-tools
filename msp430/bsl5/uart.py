@@ -128,7 +128,6 @@ class SerialBSL5(bsl5.BSL5):
             self.logger.info('closing serial port')
             self.serial.close()
             self.serial = None
-        cgos.closeif()
 
     # interface specific commands
 
